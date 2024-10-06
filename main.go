@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"strings"
 
@@ -172,5 +173,5 @@ func getAverageVolume(channelVolumes proto.ChannelVolumes) float64 {
 	}
 	sinkAcc /= int64(len(channelVolumes))
 
-	return float64(sinkAcc) / float64(proto.VolumeNorm) * 100.0
+	return math.Ceil(float64(sinkAcc) / float64(proto.VolumeNorm) * 100.0)
 }
