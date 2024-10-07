@@ -106,7 +106,9 @@ func main() {
 				Summary:       fmt.Sprintf("Volume: %s", sinkInfo.Device),
 				Body:          body,
 				ExpireTimeout: notify.ExpireTimeoutSetByNotificationServer,
-				Hints:         map[string]dbus.Variant{"value": dbus.MakeVariant(int(volume))},
+				Hints: map[string]dbus.Variant{
+					"value": dbus.MakeVariant(int(math.Ceil(volume))),
+				},
 			})
 
 		case proto.EventSource:
@@ -141,7 +143,9 @@ func main() {
 				Summary:       fmt.Sprintf("Volume: %s", sourceInfo.Device),
 				Body:          body,
 				ExpireTimeout: notify.ExpireTimeoutSetByNotificationServer,
-				Hints:         map[string]dbus.Variant{"value": dbus.MakeVariant(int(volume))},
+				Hints: map[string]dbus.Variant{
+					"value": dbus.MakeVariant(int(math.Ceil(volume))),
+				},
 			})
 		}
 	}
@@ -173,5 +177,5 @@ func getAverageVolume(channelVolumes proto.ChannelVolumes) float64 {
 	}
 	sinkAcc /= int64(len(channelVolumes))
 
-	return math.Ceil(float64(sinkAcc) / float64(proto.VolumeNorm) * 100.0)
+	return float64(sinkAcc) / float64(proto.VolumeNorm) * 100.0
 }
