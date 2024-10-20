@@ -107,7 +107,7 @@ func main() {
 				Body:          body,
 				ExpireTimeout: notify.ExpireTimeoutSetByNotificationServer,
 				Hints: map[string]dbus.Variant{
-					"value": dbus.MakeVariant(int(math.Ceil(volume))),
+					"value": dbus.MakeVariant(int(math.Round(volume))),
 				},
 			})
 
@@ -144,7 +144,7 @@ func main() {
 				Body:          body,
 				ExpireTimeout: notify.ExpireTimeoutSetByNotificationServer,
 				Hints: map[string]dbus.Variant{
-					"value": dbus.MakeVariant(int(math.Ceil(volume))),
+					"value": dbus.MakeVariant(int(math.Round(volume))),
 				},
 			})
 		}
