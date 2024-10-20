@@ -132,11 +132,11 @@ func main() {
 				body = fmt.Sprintf("%s  Current level: %.0f%%", sourceIcon, volume)
 			}
 
-			if sinksVolumes[sourceInfo.SourceName] == volume {
+			if sourceVolumes[sourceInfo.SourceName] == volume {
 				continue
 			}
 
-			sinksVolumes[sourceInfo.SourceName] = volume
+			sourceVolumes[sourceInfo.SourceName] = volume
 
 			notify.SendNotification(dbusConn, notify.Notification{
 				AppName:       appName,
