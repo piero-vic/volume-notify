@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"math"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/esiqveland/notify"
 	"github.com/godbus/dbus/v5"
@@ -26,6 +29,9 @@ var (
 )
 
 func main() {
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
 	client, conn, err := proto.Connect("")
 	if err != nil {
 		slog.Error(err.Error())
@@ -70,85 +76,89 @@ func main() {
 		}()
 	}
 
-	slog.Info("Listening for pulseaudio events")
+	slog.Info("Listening for PulseAudio events")
 
 	for {
-		e := <-eventChan
+		select {
+		case <-ctx.Done():
+			slog.Info("Quitting")
+			os.Exit(1)
+		case e := <-eventChan:
+			switch e.Event.GetFacility() {
+			case proto.EventSink:
+				sinkInfo, err := getSinkInfo(client, e.Index)
+				if err != nil {
+					slog.Error(err.Error())
+					continue
+				}
 
-		switch e.Event.GetFacility() {
-		case proto.EventSink:
-			sinkInfo, err := getSinkInfo(client, e.Index)
-			if err != nil {
-				slog.Error(err.Error())
-				continue
+				if strings.Contains(sinkInfo.Device, "Monitor") {
+					continue
+				}
+
+				volume := getAverageVolume(sinkInfo.ChannelVolumes)
+
+				var body string
+				if sinkInfo.Mute {
+					body = fmt.Sprintf("%s  MUTED", sinkIconMuted)
+					volume = -1
+				} else {
+					body = fmt.Sprintf("%s  Current level: %.0f%%", sinkIcon, volume)
+				}
+
+				if sinksVolumes[sinkInfo.SinkName] == volume {
+					continue
+				}
+
+				sinksVolumes[sinkInfo.SinkName] = volume
+
+				notify.SendNotification(dbusConn, notify.Notification{
+					AppName:       appName,
+					Summary:       fmt.Sprintf("Volume: %s", sinkInfo.Device),
+					Body:          body,
+					ExpireTimeout: notify.ExpireTimeoutSetByNotificationServer,
+					Hints: map[string]dbus.Variant{
+						"value": dbus.MakeVariant(int(math.Round(volume))),
+					},
+				})
+
+			case proto.EventSource:
+				sourceInfo, err := getSourceInfo(client, e.Index)
+				if err != nil {
+					slog.Error(err.Error())
+					continue
+				}
+
+				if strings.Contains(sourceInfo.Device, "Monitor") {
+					continue
+				}
+
+				volume := getAverageVolume(sourceInfo.ChannelVolumes)
+
+				var body string
+				if sourceInfo.Mute {
+					body = fmt.Sprintf("%s  MUTED", sourceIconMuted)
+					volume = -1
+				} else {
+					body = fmt.Sprintf("%s  Current level: %.0f%%", sourceIcon, volume)
+				}
+
+				if sourceVolumes[sourceInfo.SourceName] == volume {
+					continue
+				}
+
+				sourceVolumes[sourceInfo.SourceName] = volume
+
+				notify.SendNotification(dbusConn, notify.Notification{
+					AppName:       appName,
+					Summary:       fmt.Sprintf("Volume: %s", sourceInfo.Device),
+					Body:          body,
+					ExpireTimeout: notify.ExpireTimeoutSetByNotificationServer,
+					Hints: map[string]dbus.Variant{
+						"value": dbus.MakeVariant(int(math.Round(volume))),
+					},
+				})
 			}
-
-			if strings.Contains(sinkInfo.Device, "Monitor") {
-				continue
-			}
-
-			volume := getAverageVolume(sinkInfo.ChannelVolumes)
-
-			var body string
-			if sinkInfo.Mute {
-				body = fmt.Sprintf("%s  MUTED", sinkIconMuted)
-				volume = -1
-			} else {
-				body = fmt.Sprintf("%s  Current level: %.0f%%", sinkIcon, volume)
-			}
-
-			if sinksVolumes[sinkInfo.SinkName] == volume {
-				continue
-			}
-
-			sinksVolumes[sinkInfo.SinkName] = volume
-
-			notify.SendNotification(dbusConn, notify.Notification{
-				AppName:       appName,
-				Summary:       fmt.Sprintf("Volume: %s", sinkInfo.Device),
-				Body:          body,
-				ExpireTimeout: notify.ExpireTimeoutSetByNotificationServer,
-				Hints: map[string]dbus.Variant{
-					"value": dbus.MakeVariant(int(math.Round(volume))),
-				},
-			})
-
-		case proto.EventSource:
-			sourceInfo, err := getSourceInfo(client, e.Index)
-			if err != nil {
-				slog.Error(err.Error())
-				continue
-			}
-
-			if strings.Contains(sourceInfo.Device, "Monitor") {
-				continue
-			}
-
-			volume := getAverageVolume(sourceInfo.ChannelVolumes)
-
-			var body string
-			if sourceInfo.Mute {
-				body = fmt.Sprintf("%s  MUTED", sourceIconMuted)
-				volume = -1
-			} else {
-				body = fmt.Sprintf("%s  Current level: %.0f%%", sourceIcon, volume)
-			}
-
-			if sourceVolumes[sourceInfo.SourceName] == volume {
-				continue
-			}
-
-			sourceVolumes[sourceInfo.SourceName] = volume
-
-			notify.SendNotification(dbusConn, notify.Notification{
-				AppName:       appName,
-				Summary:       fmt.Sprintf("Volume: %s", sourceInfo.Device),
-				Body:          body,
-				ExpireTimeout: notify.ExpireTimeoutSetByNotificationServer,
-				Hints: map[string]dbus.Variant{
-					"value": dbus.MakeVariant(int(math.Round(volume))),
-				},
-			})
 		}
 	}
 }
