@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"math"
 	"os"
 	"strings"
@@ -28,14 +28,14 @@ var (
 func main() {
 	client, conn, err := proto.Connect("")
 	if err != nil {
-		log.Println(err.Error())
+		slog.Error(err.Error())
 		os.Exit(1)
 	}
 	defer conn.Close()
 
 	dbusConn, err := dbus.SessionBus()
 	if err != nil {
-		log.Println(err.Error())
+		slog.Error(err.Error())
 		os.Exit(1)
 	}
 	defer dbusConn.Close()
@@ -43,13 +43,13 @@ func main() {
 	props := proto.PropList{}
 	err = client.Request(&proto.SetClientName{Props: props}, nil)
 	if err != nil {
-		log.Println(err.Error())
+		slog.Error(err.Error())
 		os.Exit(1)
 	}
 
 	err = client.Request(&proto.Subscribe{Mask: proto.SubscriptionMaskAll}, nil)
 	if err != nil {
-		log.Println(err.Error())
+		slog.Error(err.Error())
 		os.Exit(1)
 	}
 
@@ -70,6 +70,8 @@ func main() {
 		}()
 	}
 
+	slog.Info("Listening for pulseaudio events")
+
 	for {
 		e := <-eventChan
 
@@ -77,7 +79,7 @@ func main() {
 		case proto.EventSink:
 			sinkInfo, err := getSinkInfo(client, e.Index)
 			if err != nil {
-				log.Println(err.Error())
+				slog.Error(err.Error())
 				continue
 			}
 
@@ -114,7 +116,7 @@ func main() {
 		case proto.EventSource:
 			sourceInfo, err := getSourceInfo(client, e.Index)
 			if err != nil {
-				log.Println(err.Error())
+				slog.Error(err.Error())
 				continue
 			}
 
