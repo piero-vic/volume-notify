@@ -29,34 +29,37 @@ var (
 )
 
 func main() {
+	if err := run(); err != nil {
+		slog.Error(err.Error())
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
 	client, conn, err := proto.Connect("")
 	if err != nil {
-		slog.Error(err.Error())
-		os.Exit(1)
+		return err
 	}
 	defer conn.Close()
 
 	dbusConn, err := dbus.SessionBus()
 	if err != nil {
-		slog.Error(err.Error())
-		os.Exit(1)
+		return err
 	}
 	defer dbusConn.Close()
 
 	props := proto.PropList{}
 	err = client.Request(&proto.SetClientName{Props: props}, nil)
 	if err != nil {
-		slog.Error(err.Error())
-		os.Exit(1)
+		return err
 	}
 
 	err = client.Request(&proto.Subscribe{Mask: proto.SubscriptionMaskAll}, nil)
 	if err != nil {
-		slog.Error(err.Error())
-		os.Exit(1)
+		return err
 	}
 
 	eventChan := make(chan *proto.SubscribeEvent, 1)
@@ -82,7 +85,7 @@ func main() {
 		select {
 		case <-ctx.Done():
 			slog.Info("Quitting")
-			os.Exit(1)
+			return nil
 		case e := <-eventChan:
 			switch e.Event.GetFacility() {
 			case proto.EventSink:
